@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoSphereViewer - equirectangular demo</title>
+    <link rel="stylesheet" href="../dist/photo-sphere-viewer.css">
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        
+        #photosphere {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .psv-button.custom-button {
+            font-size: 22px;
+            line-height: 20px;
+        }
+        
+        .demo-label {
+            color: white;
+            font-size: 20px;
+            font-family: Helvetica, sans-serif;
+            text-align: center;
+            padding: 5px;
+            border: 1px solid white;
+            background: rgba(0, 0, 0, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="photosphere"></div>
+    <script src="../node_modules/three/build/three.js"></script>
+    <script src="../node_modules/promise-polyfill/dist/polyfill.js"></script>
+    <script src="../node_modules/uevent/browser.js"></script>
+    <script src="../node_modules/nosleep.js/dist/NoSleep.js"></script>
+    <script src="../node_modules/three/examples/js/controls/DeviceOrientationControls.js"></script>
+    <script src="../node_modules/three/examples/js/effects/StereoEffect.js"></script>
+    <script src="../dist/photo-sphere-viewer.js"></script>
+    <!-- text used for the marker description -->
+    <script type="text/template" id="pin-content">
+        <h1>HTML Ipsum Presents</h1>
+        <p><strong>Pellentesque habitant morbi tristique</strong> senectus et netus et malesuada fames ac turpis egestas. Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Donec eu libero sit amet quam egestas semper. <em>Aenean ultricies mi vitae est.</em>            Mauris placerat eleifend leo. Quisque sit amet est et sapien ullamcorper pharetra. Vestibulum erat wisi, condimentum sed, <code>commodo vitae</code>, ornare sit amet, wisi. Aenean fermentum, elit eget tincidunt condimentum, eros ipsum rutrum
+            orci, sagittis tempus lacus enim ac dui. <a href="#">Donec non enim</a> in turpis pulvinar facilisis. Ut felis.</p>
+        <h2>Header Level 2</h2>
+        <ol>
+            <li>Lorem ipsum dolor sit amet, consectetuer adipiscing elit.</li>
+            <li>Aliquam tincidunt mauris eu risus.</li>
+        </ol>
+        <blockquote>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus magna. Cras in mi at felis aliquet congue. Ut a est eget ligula molestie gravida. Curabitur massa. Donec eleifend, libero at sagittis mollis, tellus est malesuada tellus, at
+                luctus turpis elit sit amet quam. Vivamus pretium ornare est.</p>
+        </blockquote>
+        <h3>Header Level 3</h3>
+        <ul>
+            <li>Lorem ipsum dolor sit amet, consectetuer adipiscing elit.</li>
+            <li>Aliquam tincidunt mauris eu risus.</li>
+        </ul>
+        <img src="assets/pin2.png" style="width:100%" />
+        <pre><code>
+#header h1 a {
+	display: block;
+	width: 300px;
+	height: 80px;
+}
+</code></pre>
+    </script>
+    <!-- pattern used for the polygon marker -->
+    <svg id="patterns">
+  <defs>
+    <pattern id="dots" x="10" y="10" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="10" cy="10" r="10" style="stroke: none; fill: rgba(255,0,0,0.4)"/>
+    </pattern>
+    <pattern id="points" x="10" y="10" width="15" height="15" patternUnits="userSpaceOnUse">
+      <circle cx="10" cy="10" r="0.8" style="stroke: none; fill: red"/>
+    </pattern>
+  </defs>
+</svg>
+    <script>
+        var panos = [{
+            url: '教室全景图0303(1).jpg',
+            desc: '',
+            target: {
+                longitude: 3.848,
+                latitude: -0.244,
+                zoom: 50
+            }
+        }, {
+            url: '全景实验室0304(1).jpg',
+            desc: '',
+            target: {
+                longitude: 3.715,
+                latitude: 0.574,
+                zoom: 50
+            }
+        }];
+        const PSV = new PhotoSphereViewer({
+            container: 'photosphere',
+            panorama: panos[0].url,
+            caption: panos[0].desc,
+            loadingImg: 'assets/photosphere-logo.gif',
+            longitudeRange: [-7 * Math.PI / 8, 7 * Math.PI / 8],
+            latitudeRange: [-3 * Math.PI / 4, 3 * Math.PI / 4],
+            autorotateSpeed: '-2rpm',
+            defaultZoomLvl: 50,
+            fisheye: false,
+            moveSpeed: 1.1,
+            //    touchmoveTwoFingers: true,
+            //    mousemoveHover: true,
+            navbar: [
+                'autorotate', 'zoom', 'download', {
+                    // content: '💬',
+                    // className: 'custom-button',
+                    // onClick: function() {
+                    //     PSV.hud.toggleAllTooltips();
+                    // }
+                }, {
+                    title: 'Change image',
+                    className: 'custom-button',
+                    content: '↻',
+                    onClick: (function() {
+                        var i = 0;
+                        var loading = false;
+                        return function() {
+                            if (loading) {
+                                return;
+                            }
+                            i = 1 - i;
+                            loading = true;
+                            PSV.hud.clearMarkers();
+
+                            PSV.setPanorama(panos[i].url, panos[i].target, true)
+                                .then(function() {
+                                    PSV.navbar.setCaption(panos[i].desc);
+                                    loading = false;
+                                });
+                        };
+                    }()),
+                }, {
+                    // title: 'Random position',
+                    // className: 'custom-button',
+                    // background: 'red!important',
+                    // content: '',
+                    // onClick: function() {
+                    //     PSV.animate({
+                    //         longitude: (Math.random() - 0.5) * 3 / 2 * Math.PI,
+                    //         latitude: (Math.random() - 0.5) * 3 / 4 * Math.PI,
+                    //         zoom: Math.random() * 60 + 20
+                    //     }, 1500);
+                    // },
+                }, {
+                    title: '点我看视频',
+                    className: 'custom-button',
+                    content: '➤',
+
+
+                    onClick: function() {
+                        location.href = "https://v.qq.com/x/page/z3054gvgf1p.html";
+                        // PSV.animate({
+                        //     longitude: (Math.random() - 0.5) * 3 / 2 * Math.PI,
+                        //     latitude: (Math.random() - 0.5) * 3 / 4 * Math.PI,
+                        //     zoom: Math.random() * 60 + 20
+                        // }, 1500);
+                    },
+                },
+                'caption', 'gyroscope', 'stereo', 'fullscreen',
+            ],
+            markers: (function() {
+                var a = [];
+                a.push({
+                    id: 'circle',
+                    tooltip: 'A circle of radius 30',
+                    circle: 300,
+                    svgStyle: {
+                        fill: 'rgba(255,255,0,0.3)',
+                        stroke: 'yellow',
+                        strokeWidth: '2px',
+                    },
+                    longitude: 3.5,
+                    latitude: 6.28,
+                    anchor: 'center right',
+                });
+                a.push({
+                    id: 'ellipse',
+                    tooltip: 'An ellipse of radius 60/30',
+                    ellipse: [60, 30],
+                    svgStyle: {
+                        fill: 'rgba(255,255,0,0.3)',
+                        stroke: 'yellow',
+                        strokeWidth: '2px',
+                    },
+                    longitude: 3.5,
+                    latitude: 3.5,
+                    anchor: 'center left',
+                });
+                return a;
+            }()),
+        });
+        PSV.on('click', function(e, data) {
+            PSV.hud.addMarker({
+                id: '#' + Math.random(),
+                tooltip: '这是学生小组屏幕，学生可以在此屏幕上观看教师屏幕分享的内容，也可以将手机、笔记本电脑的画面投屏到学生小组屏幕上',
+                longitude: data.longitude,
+                latitude: data.latitude,
+                image: 'assets/pin1.png',
+                width: 32,
+                height: 32,
+                anchor: 'bottom center',
+                data: {
+                    deletable: true,
+                },
+            });
+        });
+        PSV.on('select-marker', function(e, marker, dblclick) {
+            if (marker.data && marker.data.deletable) {
+                if (dblclick) {
+                    PSV.hud.removeMarker(marker);
+                } else {
+                    PSV.hud.updateMarker({
+                        id: marker.id,
+                        image: 'assets/pin2.png',
+                    });
+                }
+            }
+        });
+        PSV.on('over-marker', function(e, marker) {
+            console.log('over', marker.id);
+        });
+        PSV.on('leave-marker', function(e, marker) {
+            console.log('leave', marker.id);
+        });
+        PSV.on('select-marker-list', function(e, marker) {
+            console.log('select-list', marker.id);
+        });
+        PSV.on('goto-marker-done', function(e, marker) {
+            console.log('goto-done', marker.id);
+        });
+        PSV.on('show-tooltip', function(e, marker) {
+            if (marker) {
+                console.log('show-tooltip', marker.id);
+            }
+        });
+    </script>
+</body>
+
+</html>
